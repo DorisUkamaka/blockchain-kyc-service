@@ -130,3 +130,37 @@
     (ok true)
   )
 )
+
+
+(define-public (update-kyc-level (customer-id uint) (new-kyc-level uint))
+  (let
+    (
+      (customer (unwrap! (map-get? customers { customer-id: customer-id }) err-not-found))
+    )
+    (asserts! (is-contract-owner) err-unauthorized)
+    (asserts! (or (is-eq new-kyc-level u1) (is-eq new-kyc-level u2) (is-eq new-kyc-level u3)) err-invalid-kyc-level)
+    (map-set customers
+      { customer-id: customer-id }
+      (merge customer { kyc-level: new-kyc-level })
+    )
+    (ok true)
+  )
+)
+
+(define-public (upload-customer-document (customer-id uint) (document-type (string-utf8 50)) (document-hash (buff 32)))
+  (let
+    (
+      (customer (unwrap! (map-get? customers { customer-id: customer-id }) err-not-found))
+    )
+    (asserts! (is-eq tx-sender (get address customer)) err-unauthorized)
+    (asserts! (is-none (map-get? customer-documents { customer-id: customer-id, document-type: document-type })) err-document-already-exists)
+    (map-set customer-documents
+      { customer-id: customer-id, document-type: document-type }
+      {
+        document-hash: document-hash,
+        upload-date: block-height
+      }
+    )
+    (ok true)
+  )
+)
