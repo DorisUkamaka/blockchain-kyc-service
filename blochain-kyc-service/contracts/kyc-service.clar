@@ -180,3 +180,18 @@
 (define-read-only (is-business-approved (business-id uint))
   (is-approved-business business-id)
 )
+
+(define-read-only (get-customer-kyc-level (customer-id uint))
+  (match (map-get? customers { customer-id: customer-id })
+    customer (some (get kyc-level customer))
+    none
+  )
+)
+
+(define-read-only (get-customer-document (customer-id uint) (document-type (string-utf8 50)))
+  (map-get? customer-documents { customer-id: customer-id, document-type: document-type })
+)
+
+(define-read-only (get-business-details (business-id uint))
+  (map-get? businesses { business-id: business-id })
+)
