@@ -53,3 +53,80 @@
     false
   )
 )
+
+;; Public functions
+(define-public (add-customer (name (string-utf8 100)) (date-of-birth uint) (residence-country (string-utf8 50)))
+  (let
+    (
+      (new-id (+ (var-get customer-id-nonce) u1))
+    )
+    (asserts! (is-none (map-get? customers { customer-id: new-id })) err-already-exists)
+    (map-set customers
+      { customer-id: new-id }
+      {
+        address: tx-sender,
+        name: name,
+        date-of-birth: date-of-birth,
+        residence-country: residence-country,
+        is-verified: false,
+        verification-date: u0,
+        kyc-level: u0
+      }
+    )
+    (var-set customer-id-nonce new-id)
+    (ok new-id)
+  )
+)
+
+(define-public (verify-customer (customer-id uint) (business-id uint))
+  (let
+    (
+      (customer (unwrap! (map-get? customers { customer-id: customer-id }) err-not-found))
+    )
+    (asserts! (is-approved-business business-id) err-unauthorized)
+    (asserts! (not (get is-verified customer)) err-already-verified)
+    (map-set customers
+      { customer-id: customer-id }
+      (merge customer { 
+        is-verified: true,
+        verification-date: block-height
+      })
+    )
+    (ok true)
+  )
+)
+
+(define-public (approve-business (address principal) (name (string-utf8 100)) (business-type (string-utf8 50)))
+  (let
+    (
+      (new-id (+ (var-get business-id-nonce) u1))
+    )
+    (asserts! (is-contract-owner) err-unauthorized)
+    (asserts! (is-none (map-get? businesses { business-id: new-id })) err-already-exists)
+    (map-set businesses
+      { business-id: new-id }
+      {
+        address: address,
+        name: name,
+        is-approved: true,
+        business-type: business-type
+      }
+    )
+    (var-set business-id-nonce new-id)
+    (ok new-id)
+  )
+)
+
+(define-public (revoke-business (business-id uint))
+  (let
+    (
+      (business (unwrap! (map-get? businesses { business-id: business-id }) err-not-found))
+    )
+    (asserts! (is-contract-owner) err-unauthorized)
+    (map-set businesses
+      { business-id: business-id }
+      (merge business { is-approved: false })
+    )
+    (ok true)
+  )
+)
