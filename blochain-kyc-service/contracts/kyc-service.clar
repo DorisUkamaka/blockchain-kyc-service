@@ -164,3 +164,19 @@
     (ok true)
   )
 )
+
+;; Read-only functions
+(define-read-only (get-customer-details (customer-id uint))
+  (map-get? customers { customer-id: customer-id })
+)
+
+(define-read-only (is-customer-verified (customer-id uint))
+  (match (map-get? customers { customer-id: customer-id })
+    customer (get is-verified customer)
+    false
+  )
+)
+
+(define-read-only (is-business-approved (business-id uint))
+  (is-approved-business business-id)
+)
