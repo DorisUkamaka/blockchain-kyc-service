@@ -225,6 +225,58 @@
     )
 )
 
+;; Update customer verification with history
+(define-public (update-customer-verification 
+    (customer-id uint) 
+    (business-id uint) 
+    (new-status bool))
+    (let
+        (
+            (customer (unwrap! (map-get? customers { customer-id: customer-id }) err-not-found))
+            (current-status (get is-verified customer))
+        )
+        (begin
+            (asserts! (is-approved-business business-id) err-unauthorized)
+            (asserts! (not (is-eq current-status new-status)) err-invalid-status)
+            
+            ;; Update customer status
+            (map-set customers
+                { customer-id: customer-id }
+                (merge customer { 
+                    is-verified: new-status,
+                    verification-date: block-height
+                })
+            )
+            
+            ;; Add to history
+            (match (map-get? customer-status-history { customer-id: customer-id })
+                prev-history (map-set customer-status-history
+                    { customer-id: customer-id }
+                    (unwrap! (as-max-len? 
+                        (append prev-history {
+                            timestamp: block-height,
+                            old-status: current-status,
+                            new-status: new-status,
+                            changed-by: tx-sender
+                        }) 
+                        u20) 
+                        err-unauthorized))
+                (map-set customer-status-history
+                    { customer-id: customer-id }
+                    (list {
+                        timestamp: block-height,
+                        old-status: current-status,
+                        new-status: new-status,
+                        changed-by: tx-sender
+                    })
+                )
+            )
+            
+            (ok true)
+        )
+    )
+)
+
 ;; Read-only functions
 (define-read-only (get-customer-details (customer-id uint))
   (map-get? customers { customer-id: customer-id })
