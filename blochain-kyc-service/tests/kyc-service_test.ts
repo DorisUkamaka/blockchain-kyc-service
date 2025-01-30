@@ -252,4 +252,55 @@ Clarinet.test({
 });
 
 
+Clarinet.test({
+    name: "Ensure business-customer linking works",
+    async fn(chain: Chain, accounts: Map<string, Account>)
+    {
+        const deployer = accounts.get("deployer")!;
+        const wallet1 = accounts.get("wallet_1")!;
+
+        // Setup: approve business and add customer
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-verification",
+                "approve-business",
+                [
+                    types.principal(wallet1.address),
+                    types.utf8("KYC Corp"),
+                    types.utf8("Verifier")
+                ],
+                deployer.address
+            ),
+            Tx.contractCall(
+                "kyc-verification",
+                "add-customer",
+                [
+                    types.utf8("Charlie"),
+                    types.uint(19900101),
+                    types.utf8("USA")
+                ],
+                wallet1.address
+            )
+        ]);
+
+        // Link customer to business
+        block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-verification",
+                "link-customer-to-business",
+                [types.uint(1), types.uint(1)],
+                wallet1.address
+            ),
+            Tx.contractCall(
+                "kyc-verification",
+                "get-business-customers",
+                [types.uint(1)],
+                wallet1.address
+            )
+        ]);
+
+        assertEquals(block.receipts[0].result, '(ok true)');
+    },
+});
+
 
