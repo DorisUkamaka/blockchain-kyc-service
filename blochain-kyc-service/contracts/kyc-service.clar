@@ -5,6 +5,11 @@
 (define-constant err-already-verified (err u103))
 (define-constant err-invalid-kyc-level (err u104))
 (define-constant err-document-already-exists (err u105))
+;; Additional error constants
+(define-constant err-invalid-date (err u106))
+(define-constant err-invalid-status (err u107))
+(define-constant err-expired (err u108))
+(define-constant err-max-documents (err u109))
 
 
 ;; Define data variables
@@ -41,6 +46,33 @@
     upload-date: uint
   }
 )
+
+;; Additional data maps
+(define-map document-types
+    (string-utf8 50)
+    {
+        required-kyc-level: uint,
+        expiry-period: uint,  ;; in blocks
+        is-active: bool
+    }
+)
+
+(define-map customer-status-history
+    { customer-id: uint }
+    (list 20 {
+        timestamp: uint,
+        old-status: bool,
+        new-status: bool,
+        changed-by: principal
+    })
+)
+
+(define-map business-customers
+    { business-id: uint }
+    (list 1000 uint)  ;; List of customer IDs
+)
+
+
 
 ;; Helper functions
 (define-private (is-contract-owner)
@@ -165,6 +197,107 @@
   )
 )
 
+;; Initialize document types
+(define-public (register-document-type 
+    (doc-type (string-utf8 50)) 
+    (required-level uint) 
+    (expiry-blocks uint))
+    (begin
+        (asserts! (is-contract-owner) err-unauthorized)
+        (ok (map-set document-types doc-type {
+            required-kyc-level: required-level,
+            expiry-period: expiry-blocks,
+            is-active: true
+        }))
+    )
+)
+
+;; Deactivate document type
+(define-public (deactivate-document-type (doc-type (string-utf8 50)))
+    (begin
+        (asserts! (is-contract-owner) err-unauthorized)
+        (match (map-get? document-types doc-type)
+            doc-info (ok (map-set document-types 
+                doc-type 
+                (merge doc-info { is-active: false })))
+            err-not-found
+        )
+    )
+)
+
+;; Update customer verification with history
+(define-public (update-customer-verification 
+    (customer-id uint) 
+    (business-id uint) 
+    (new-status bool))
+    (let
+        (
+            (customer (unwrap! (map-get? customers { customer-id: customer-id }) err-not-found))
+            (current-status (get is-verified customer))
+        )
+        (begin
+            (asserts! (is-approved-business business-id) err-unauthorized)
+            (asserts! (not (is-eq current-status new-status)) err-invalid-status)
+            
+            ;; Update customer status
+            (map-set customers
+                { customer-id: customer-id }
+                (merge customer { 
+                    is-verified: new-status,
+                    verification-date: block-height
+                })
+            )
+            
+            ;; Add to history
+            (match (map-get? customer-status-history { customer-id: customer-id })
+                prev-history (map-set customer-status-history
+                    { customer-id: customer-id }
+                    (unwrap! (as-max-len? 
+                        (append prev-history {
+                            timestamp: block-height,
+                            old-status: current-status,
+                            new-status: new-status,
+                            changed-by: tx-sender
+                        }) 
+                        u20) 
+                        err-unauthorized))
+                (map-set customer-status-history
+                    { customer-id: customer-id }
+                    (list {
+                        timestamp: block-height,
+                        old-status: current-status,
+                        new-status: new-status,
+                        changed-by: tx-sender
+                    })
+                )
+            )
+            
+            (ok true)
+        )
+    )
+)
+
+;; Link customer to business
+(define-public (link-customer-to-business 
+    (customer-id uint) 
+    (business-id uint))
+    (begin
+        (asserts! (is-approved-business business-id) err-unauthorized)
+        (match (map-get? business-customers { business-id: business-id })
+            prev-customers (ok (map-set business-customers
+                { business-id: business-id }
+                (unwrap! (as-max-len? 
+                    (append prev-customers customer-id)
+                    u1000)
+                    err-unauthorized)))
+            (ok (map-set business-customers
+                { business-id: business-id }
+                (list customer-id)))
+        )
+    )
+)
+
+
 ;; Read-only functions
 (define-read-only (get-customer-details (customer-id uint))
   (map-get? customers { customer-id: customer-id })
@@ -195,3 +328,29 @@
 (define-read-only (get-business-details (business-id uint))
   (map-get? businesses { business-id: business-id })
 )
+
+;; Get customer verification history
+(define-read-only (get-customer-verification-history (customer-id uint))
+    (map-get? customer-status-history { customer-id: customer-id })
+)
+
+;; Get business customers
+(define-read-only (get-business-customers (business-id uint))
+    (map-get? business-customers { business-id: business-id })
+)
+
+;; Check if document type is active
+(define-read-only (get-document-type-info (doc-type (string-utf8 50)))
+    (map-get? document-types doc-type)
+)
+
+;; Get count of customer documents
+(define-read-only (get-customer-document-count (customer-id uint))
+    (let
+        (
+            (customer (unwrap! (map-get? customers { customer-id: customer-id }) u0))
+        )
+        (len (unwrap! (get-business-customers customer-id) u0))
+    )
+)
+
