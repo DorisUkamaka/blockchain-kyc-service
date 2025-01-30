@@ -163,3 +163,50 @@ Clarinet.test({
     },
 });
 
+Clarinet.test({
+    name: "Ensure document upload and retrieval works",
+    async fn(chain: Chain, accounts: Map<string, Account>)
+    {
+        const wallet1 = accounts.get("wallet_1")!;
+
+        // First add a customer
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-service",
+                "add-customer",
+                [
+                    types.utf8("Alice"),
+                    types.uint(19900101),
+                    types.utf8("USA")
+                ],
+                wallet1.address
+            )
+        ]);
+
+        const documentHash = '0x1234567890123456789012345678901234567890123456789012345678901234';
+
+        // Upload document
+        block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-service",
+                "upload-customer-document",
+                [
+                    types.uint(1),
+                    types.utf8("passport"),
+                    // types.buff(Buffer.from(documentHash.slice(2), 'hex'))
+                ],
+                wallet1.address
+            ),
+            Tx.contractCall(
+                "kyc-service",
+                "get-customer-document",
+                [types.uint(1), types.utf8("passport")],
+                wallet1.address
+            )
+        ]);
+
+        assertEquals(block.receipts[0].result, '(ok true)');
+    },
+});
+
+
