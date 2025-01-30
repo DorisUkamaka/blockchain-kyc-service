@@ -197,6 +197,34 @@
   )
 )
 
+;; Initialize document types
+(define-public (register-document-type 
+    (doc-type (string-utf8 50)) 
+    (required-level uint) 
+    (expiry-blocks uint))
+    (begin
+        (asserts! (is-contract-owner) err-unauthorized)
+        (ok (map-set document-types doc-type {
+            required-kyc-level: required-level,
+            expiry-period: expiry-blocks,
+            is-active: true
+        }))
+    )
+)
+
+;; Deactivate document type
+(define-public (deactivate-document-type (doc-type (string-utf8 50)))
+    (begin
+        (asserts! (is-contract-owner) err-unauthorized)
+        (match (map-get? document-types doc-type)
+            doc-info (ok (map-set document-types 
+                doc-type 
+                (merge doc-info { is-active: false })))
+            err-not-found
+        )
+    )
+)
+
 ;; Read-only functions
 (define-read-only (get-customer-details (customer-id uint))
   (map-get? customers { customer-id: customer-id })
