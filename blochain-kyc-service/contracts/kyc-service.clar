@@ -5,6 +5,11 @@
 (define-constant err-already-verified (err u103))
 (define-constant err-invalid-kyc-level (err u104))
 (define-constant err-document-already-exists (err u105))
+;; Additional error constants
+(define-constant err-invalid-date (err u106))
+(define-constant err-invalid-status (err u107))
+(define-constant err-expired (err u108))
+(define-constant err-max-documents (err u109))
 
 
 ;; Define data variables
@@ -41,6 +46,33 @@
     upload-date: uint
   }
 )
+
+;; Additional data maps
+(define-map document-types
+    (string-utf8 50)
+    {
+        required-kyc-level: uint,
+        expiry-period: uint,  ;; in blocks
+        is-active: bool
+    }
+)
+
+(define-map customer-status-history
+    { customer-id: uint }
+    (list 20 {
+        timestamp: uint,
+        old-status: bool,
+        new-status: bool,
+        changed-by: principal
+    })
+)
+
+(define-map business-customers
+    { business-id: uint }
+    (list 1000 uint)  ;; List of customer IDs
+)
+
+
 
 ;; Helper functions
 (define-private (is-contract-owner)
