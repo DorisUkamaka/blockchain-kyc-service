@@ -277,6 +277,27 @@
     )
 )
 
+;; Link customer to business
+(define-public (link-customer-to-business 
+    (customer-id uint) 
+    (business-id uint))
+    (begin
+        (asserts! (is-approved-business business-id) err-unauthorized)
+        (match (map-get? business-customers { business-id: business-id })
+            prev-customers (ok (map-set business-customers
+                { business-id: business-id }
+                (unwrap! (as-max-len? 
+                    (append prev-customers customer-id)
+                    u1000)
+                    err-unauthorized)))
+            (ok (map-set business-customers
+                { business-id: business-id }
+                (list customer-id)))
+        )
+    )
+)
+
+
 ;; Read-only functions
 (define-read-only (get-customer-details (customer-id uint))
   (map-get? customers { customer-id: customer-id })
