@@ -328,3 +328,29 @@
 (define-read-only (get-business-details (business-id uint))
   (map-get? businesses { business-id: business-id })
 )
+
+;; Get customer verification history
+(define-read-only (get-customer-verification-history (customer-id uint))
+    (map-get? customer-status-history { customer-id: customer-id })
+)
+
+;; Get business customers
+(define-read-only (get-business-customers (business-id uint))
+    (map-get? business-customers { business-id: business-id })
+)
+
+;; Check if document type is active
+(define-read-only (get-document-type-info (doc-type (string-utf8 50)))
+    (map-get? document-types doc-type)
+)
+
+;; Get count of customer documents
+(define-read-only (get-customer-document-count (customer-id uint))
+    (let
+        (
+            (customer (unwrap! (map-get? customers { customer-id: customer-id }) u0))
+        )
+        (len (unwrap! (get-business-customers customer-id) u0))
+    )
+)
+
