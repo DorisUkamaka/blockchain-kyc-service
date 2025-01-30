@@ -209,4 +209,47 @@ Clarinet.test({
     },
 });
 
+Clarinet.test({
+    name: "Ensure KYC level updates work correctly",
+    async fn(chain: Chain, accounts: Map<string, Account>)
+    {
+        const deployer = accounts.get("deployer")!;
+        const wallet1 = accounts.get("wallet_1")!;
+
+        // Add a customer first
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-verification",
+                "add-customer",
+                [
+                    types.utf8("Bob"),
+                    types.uint(19900101),
+                    types.utf8("USA")
+                ],
+                wallet1.address
+            )
+        ]);
+
+        // Update KYC level
+        block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-verification",
+                "update-kyc-level",
+                [types.uint(1), types.uint(2)],
+                deployer.address
+            ),
+            Tx.contractCall(
+                "kyc-verification",
+                "get-customer-kyc-level",
+                [types.uint(1)],
+                deployer.address
+            )
+        ]);
+
+        assertEquals(block.receipts[0].result, '(ok true)');
+        assertEquals(block.receipts[1].result, '(some u2)');
+    },
+});
+
+
 
