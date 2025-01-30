@@ -108,3 +108,58 @@ Clarinet.test({
         assertEquals(block.receipts[0].result, '(ok true)');
     },
 });
+
+
+Clarinet.test({
+    name: "Ensure customer verification flow works correctly",
+    async fn(chain: Chain, accounts: Map<string, Account>)
+    {
+        const deployer = accounts.get("deployer")!;
+        const wallet1 = accounts.get("wallet_1")!;
+        const wallet2 = accounts.get("wallet_2")!;
+
+        // First approve a business and add a customer
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-service",
+                "approve-business",
+                [
+                    types.principal(wallet1.address),
+                    types.utf8("Verifier Co"),
+                    types.utf8("KYC Provider")
+                ],
+                deployer.address
+            ),
+            Tx.contractCall(
+                "kyc-service",
+                "add-customer",
+                [
+                    types.utf8("Jane Doe"),
+                    types.uint(19900101),
+                    types.utf8("USA")
+                ],
+                wallet2.address
+            )
+        ]);
+
+        // Now verify the customer
+        block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-service",
+                "verify-customer",
+                [types.uint(1), types.uint(1)],
+                wallet1.address
+            ),
+            Tx.contractCall(
+                "kyc-service",
+                "is-customer-verified",
+                [types.uint(1)],
+                wallet1.address
+            )
+        ]);
+
+        assertEquals(block.receipts[0].result, '(ok true)');
+        assertEquals(block.receipts[1].result, 'true');
+    },
+});
+
