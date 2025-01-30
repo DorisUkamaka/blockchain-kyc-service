@@ -3,24 +3,26 @@ import { Clarinet, Tx, Chain, Account, types } from 'https://deno.land/x/clarine
 import { assertEquals } from 'https://deno.land/std@0.90.0/testing/asserts.ts';
 
 Clarinet.test({
-    name: "Ensure that <...>",
-    async fn(chain: Chain, accounts: Map<string, Account>) {
-        let block = chain.mineBlock([
-            /* 
-             * Add transactions with: 
-             * Tx.contractCall(...)
-            */
-        ]);
-        assertEquals(block.receipts.length, 0);
-        assertEquals(block.height, 2);
+    name: "Ensure that customer registration works correctly",
+    async fn(chain: Chain, accounts: Map<string, Account>)
+    {
+        const wallet1 = accounts.get("wallet_1")!;
 
-        block = chain.mineBlock([
-            /* 
-             * Add transactions with: 
-             * Tx.contractCall(...)
-            */
+        let block = chain.mineBlock([
+            Tx.contractCall(
+                "kyc-service",
+                "add-customer",
+                [
+                    types.utf8("John Doe"),
+                    types.uint(19900101),
+                    types.utf8("USA")
+                ],
+                wallet1.address
+            )
         ]);
-        assertEquals(block.receipts.length, 0);
-        assertEquals(block.height, 3);
+
+        assertEquals(block.receipts.length, 1);
+        assertEquals(block.receipts[0].result, '(ok u1)');
+        assertEquals(block.height, 2);
     },
 });
